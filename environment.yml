@@ -1,0 +1,8 @@
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.12
+  - fastapi=0.112.2
+  - fastapi-cli=0.0.7
+  - python-multipart=0.0.20
