@@ -38,7 +38,7 @@ async def root():
     return {"status": "ok"}
 
 
-@app.get("/repo/{channel_name}/{arch}/repodata.json")
+@app.get("/channels/{channel_name}/{arch}/repodata.json")
 async def get_repodata(channel_name: str, arch: str):
     file_path = get_repodata_file(channel=channel_name, arch=arch)
     if not file_path.is_file():
@@ -46,7 +46,7 @@ async def get_repodata(channel_name: str, arch: str):
 
     return FileResponse(file_path)
 
-@app.get("/repo/{channel_name}/{arch}/{filename}.whl")
+@app.get("/channels/{channel_name}/{arch}/{filename}.whl")
 async def get_wheel(filename: str):
     # Wheels are always in the format package-version-build-num.whl
     # And the build number is actually the key to look up in the index, instead of anything meaningful
@@ -58,22 +58,7 @@ async def get_wheel(filename: str):
     return RedirectResponse(cache[key])
     
 
-@app.post("/wheels")
-async def set_wheel_index(
-    file: UploadFile = File(...),
-    _authenticated: HTTPBasicCredentials = Depends(authenticated),
-):
-    global wheel_url_cache
-    file_path = get_wheel_cache_path()
-    with NamedTemporaryFile() as tmp_file:
-        while content := await file.read(1024):
-            tmp_file.write(content)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        Path(tmp_file.name).replace(file_path)
-        wheel_url_cache = None
-
-
-@app.post("/repo/{channel_name}/{arch}/repodata.json")
+@app.post("/channels/{channel_name}/{arch}/repodata.json")
 async def set_repodata(
     channel_name: str,
     arch: str,
@@ -89,6 +74,20 @@ async def set_repodata(
         # However this falls under the category of "don't do that it hurts"
         file_path.parent.mkdir(parents=True, exist_ok=True)
         Path(tmp_file.name).replace(file_path)
+
+@app.post("/wheels")
+async def set_wheel_index(
+    file: UploadFile = File(...),
+    _authenticated: HTTPBasicCredentials = Depends(authenticated),
+):
+    global wheel_url_cache
+    file_path = get_wheel_cache_path()
+    with NamedTemporaryFile() as tmp_file:
+        while content := await file.read(1024):
+            tmp_file.write(content)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        Path(tmp_file.name).replace(file_path)
+        wheel_url_cache = None
 
 def get_wheel_cache_path() -> Path:
     base_path = os.environ.get("REPO_PATH")
