@@ -75,6 +75,15 @@ async def set_repodata(
         file_path.parent.mkdir(parents=True, exist_ok=True)
         Path(tmp_file.name).replace(file_path)
 
+@app.get("/wheels")
+async def get_wheel_index(_authenticated: HTTPBasicCredentials = Depends(authenticated)) -> dict[str, str]:
+    try:
+        return get_wheel_url_cache()
+    except HTTPException as e:
+        if (e.detail == "Wheel cache file not found"):
+            return {}
+        raise e
+
 @app.post("/wheels")
 async def set_wheel_index(
     file: UploadFile = File(...),
@@ -96,16 +105,18 @@ def get_wheel_cache_path() -> Path:
 
 def get_wheel_url_cache() -> dict[str, str]:
     global wheel_url_cache
+    ret: dict[str, str]
     if wheel_url_cache is None:
         file = get_wheel_cache_path()
         try:
             with file.open() as f:
-                wheel_url_cache = json.load(f)
+                ret = json.load(f)
+                wheel_url_cache = ret
         except Exception:
             raise HTTPException(status_code=500, detail="Wheel cache file not found")
-    if not wheel_url_cache:
-        raise HTTPException(status_code=500, detail="Index file not found")
-    return wheel_url_cache
+    else:
+        ret = wheel_url_cache
+    return ret
 
 def get_repodata_file(*, channel: str, arch: str) -> Path:
     if not valid_channel_name.match(channel):

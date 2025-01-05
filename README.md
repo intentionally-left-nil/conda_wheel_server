@@ -24,7 +24,7 @@ Uploads a repodata. Make sure to use basic auth. Example cURL command:
 curl -X POST "localhost:8000/channels/my_cool_channel/noarch/repodata.json" -u admin:password -F "file=@/path/to/repodata.json"
 ```
 
-### Create or update the wheel_index
+### Get the wheel_index
 The /wheels route expects a JSON file in the following format
 ```json
 {
@@ -32,7 +32,14 @@ The /wheels route expects a JSON file in the following format
   "build_num_uuid2" "..."
 }
 ```
-where the wheel "build number" corresponds to the actual location of the wheel file. Again, make sure to use basic auth
+where the wheel "build number" corresponds to the actual location of the wheel file.
+You can get the current index with:
+```sh
+curl "localhost:8000/wheels" -u admin:password
+```
+
+### Create or update the wheel_index
+You can update the wheel index with 
 Example cURL command:
 ```sh
 curl -X POST "localhost:8000/wheels" -u admin:password -F "file=@/path/to/wheel_index.json"
