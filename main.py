@@ -7,16 +7,12 @@ from tempfile import NamedTemporaryFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import os
 import secrets
-from typing import Optional
-import json
 
 app = FastAPI()
 valid_channel_name = re.compile(
     "^[a-z0-9_]+$"
 )  # Notably don't allow any ./ or anything that could cause a directory traversal
 security = HTTPBasic()
-
-wheel_url_cache: Optional[dict[str, str]] = None
 
 
 def authenticated(
@@ -40,23 +36,32 @@ async def root():
 
 @app.get("/channels/{channel_name}/{arch}/repodata.json")
 async def get_repodata(channel_name: str, arch: str):
-    file_path = get_repodata_file(channel=channel_name, arch=arch)
+    file_path = get_repodata_path(channel=channel_name, arch=arch)
     if not file_path.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(file_path)
 
+
 @app.get("/channels/{channel_name}/{arch}/{filename}.whl")
 async def get_wheel(filename: str):
-    # Wheels are always in the format package-version-build-num.whl
-    # And the build number is actually the key to look up in the index, instead of anything meaningful
-    parts = filename.split("-")
-    key = parts[-1]
-    cache = get_wheel_url_cache()
-    if key not in cache:
+    filename = f"{filename}.whl"  # Re-append the wheel extension
+    try:
+        url = whl_pypi_url(filename)
+        return RedirectResponse(url)
+    except Exception:
+        raise HTTPException(status_code=404, detail="whl cannot be redirected")
+
+
+@app.get("/channels/{channel_name}/{arch}/{filename}.tar.bz2")
+async def get_tarball(filename: str):
+    if not filename.startswith("_c"):
         raise HTTPException(status_code=404, detail="File not found")
-    return RedirectResponse(cache[key])
-    
+    path = get_metapackage_stub_path()
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path)
+
 
 @app.post("/channels/{channel_name}/{arch}/repodata.json")
 async def set_repodata(
@@ -65,7 +70,7 @@ async def set_repodata(
     file: UploadFile = File(...),
     _authenticated: HTTPBasicCredentials = Depends(authenticated),
 ):
-    file_path = get_repodata_file(channel=channel_name, arch=arch)
+    file_path = get_repodata_path(channel=channel_name, arch=arch)
     with NamedTemporaryFile() as tmp_file:
         while content := await file.read(1024):
             tmp_file.write(content)
@@ -75,53 +80,11 @@ async def set_repodata(
         file_path.parent.mkdir(parents=True, exist_ok=True)
         Path(tmp_file.name).replace(file_path)
 
-@app.get("/wheels")
-async def get_wheel_index(_authenticated: HTTPBasicCredentials = Depends(authenticated)) -> dict[str, str]:
-    try:
-        return get_wheel_url_cache()
-    except HTTPException as e:
-        if (e.detail == "Wheel cache file not found"):
-            return {}
-        raise e
 
-@app.post("/wheels")
-async def set_wheel_index(
-    file: UploadFile = File(...),
-    _authenticated: HTTPBasicCredentials = Depends(authenticated),
-):
-    global wheel_url_cache
-    file_path = get_wheel_cache_path()
-    with NamedTemporaryFile() as tmp_file:
-        while content := await file.read(1024):
-            tmp_file.write(content)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        Path(tmp_file.name).replace(file_path)
-        wheel_url_cache = None
-
-def get_wheel_cache_path() -> Path:
-    base_path = os.environ.get("REPO_PATH")
-    base_path = Path(base_path) if base_path else Path(__file__).parent
-    return base_path / "wheel_cache.json"
-
-def get_wheel_url_cache() -> dict[str, str]:
-    global wheel_url_cache
-    ret: dict[str, str]
-    if wheel_url_cache is None:
-        file = get_wheel_cache_path()
-        try:
-            with file.open() as f:
-                ret = json.load(f)
-                wheel_url_cache = ret
-        except Exception:
-            raise HTTPException(status_code=500, detail="Wheel cache file not found")
-    else:
-        ret = wheel_url_cache
-    return ret
-
-def get_repodata_file(*, channel: str, arch: str) -> Path:
+def get_repodata_path(*, channel: str, arch: str) -> Path:
     if not valid_channel_name.match(channel):
         raise HTTPException(status_code=400, detail="Invalid channel name")
-    
+
     if channel.lower() == "wheel_cache":
         raise HTTPException(status_code=400, detail="Invalid channel name")
 
@@ -131,3 +94,17 @@ def get_repodata_file(*, channel: str, arch: str) -> Path:
     base_path = os.environ.get("REPO_PATH")
     base_path = Path(base_path) if base_path else Path(__file__).parent / "repodata"
     return base_path / arch / f"{channel}.json"
+
+
+def get_metapackage_stub_path() -> Path:
+    return Path(__file__).parent / "metapackagestub-1.0-0.tar.bz2"
+
+
+def whl_pypi_url(filename):
+    # https://packaging.python.org/en/latest/specifications/binary-distribution-format/#binary-distribution-format
+    # could also contain build_tag but not allowed on PyPI
+    raw_name, _, python_tag = filename.split("-")[:3]
+    # PEP 503
+    name = re.sub(r"[-_.]+", "-", raw_name).lower()
+    host = "https://files.pythonhosted.org"
+    return f"{host}/packages/{python_tag}/{name[0]}/{name}/{filename}"

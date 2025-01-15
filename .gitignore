@@ -170,5 +170,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+
+# Mac specific files
+.DS_Store
+
 # App specific gitignore
 /repodata/
