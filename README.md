@@ -27,3 +27,12 @@ Uploads a repodata. Make sure to use basic auth. Example cURL command:
 ```sh
 curl -X POST "localhost:8000/channels/my_cool_channel/noarch/repodata.json" -u admin:password -F "file=@/path/to/repodata.json"
 ```
+
+### Delete a channel
+
+DELETE /channels/{channel_name}
+Deletes a channel. Requires basic auth. Example cURL command:
+
+```sh
+curl -X DELETE "localhost:8000/channels/my_cool_channel" -u admin:password
+```

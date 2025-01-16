@@ -7,6 +7,7 @@ from tempfile import NamedTemporaryFile
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import os
 import secrets
+import shutil
 
 app = FastAPI()
 valid_channel_name = re.compile(
@@ -82,21 +83,31 @@ async def set_repodata(
         # However this falls under the category of "don't do that it hurts"
         Path(tmp_file.name).replace(file_path)
 
+@app.delete("/channels/{channel}")
+async def delete_channel(
+    channel: str,
+    _authenticated: HTTPBasicCredentials = Depends(authenticated),
+):
+    channel_path = get_channel_path(channel)
+    try:
+        shutil.rmtree(channel_path)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete channel: {str(e)}")
 
 def get_repodata_path(*, channel: str, arch: str) -> Path:
-    if not valid_channel_name.match(channel):
-        raise HTTPException(status_code=400, detail="Invalid channel name")
-
-    if channel.lower() == "wheel_cache":
-        raise HTTPException(status_code=400, detail="Invalid channel name")
-
     valid_arch = ["noarch", "osx-arm64", "osx-64", "linux-64", "win-64"]
     if arch not in valid_arch:
         raise HTTPException(status_code=400, detail="Invalid arch name")
+    channel_path = get_channel_path(channel)
+    return channel_path / arch / f"{channel}.json"
+
+def get_channel_path(channel: str) -> Path:
+    if not valid_channel_name.match(channel):
+        raise HTTPException(status_code=400, detail="Invalid channel name")
     base_path = os.environ.get("REPO_PATH")
     base_path = Path(base_path) if base_path else Path(__file__).parent / "repodata"
-    return base_path / arch / f"{channel}.json"
-
+    return base_path / channel
 
 def get_metapackage_stub_path() -> Path:
     return Path(__file__).parent / "metapackagestub-1.0-0.tar.bz2"
