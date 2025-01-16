@@ -71,13 +71,15 @@ async def set_repodata(
     _authenticated: HTTPBasicCredentials = Depends(authenticated),
 ):
     file_path = get_repodata_path(channel=channel_name, arch=arch)
-    with NamedTemporaryFile() as tmp_file:
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    # Prevent cross-device link errors by creating a temporary file in the
+    # same directory as the final destination
+    with NamedTemporaryFile(dir=file_path.parent.parent, suffix=".tmp") as tmp_file:
         while content := await file.read(1024):
             tmp_file.write(content)
         # Rename atomically to prevent any new reads from getting a partial file
         # There's still a race condition when two POST requests come through at the same time,
         # However this falls under the category of "don't do that it hurts"
-        file_path.parent.mkdir(parents=True, exist_ok=True)
         Path(tmp_file.name).replace(file_path)
 
 
