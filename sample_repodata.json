@@ -1,0 +1,24 @@
+{
+  "info": {
+    "subdir": "noarch"
+  },
+  "packages": {
+    "imagesize-1.4.1-py2.py3-none-any.whl": {
+      "build": "0",
+      "build_number": 0,
+      "depends": ["python"],
+      "md5": "020f792680bad3d268a7321947e4e542",
+      "name": "imagesize",
+      "noarch": "python",
+      "sha256": "020f792680bad3d268a7321947e4e542",
+      "size": 8769,
+      "subdir": "noarch",
+      "timestamp": 1732134840302,
+      "version": "1.4.1",
+      "url": "https://b34a-8-29-230-88.ngrok-free.app/hello"
+    }
+  },
+  "packages.conda": {},
+  "removed": [],
+  "repodata_version": 1
+}

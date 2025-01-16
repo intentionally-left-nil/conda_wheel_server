@@ -15,7 +15,10 @@ Make sure to set the REPO_PASSWORD environment variable :)
 Simple GET route for the repodata
 
 /channels/channel_name/architecture/file.whl
-Does a lookup based off the build string for the wheel to find the appropriate URL
+Redirects to the correspending file.whl on PyPI
+
+/channels/channel_name/architecture/_c-1235-0.1-info@hash.tar.bz2
+Does a lookup based off the hash to find the appropriate stub package
 
 ## Admin routes
 
@@ -35,4 +38,15 @@ Deletes a channel. Requires basic auth. Example cURL command:
 
 ```sh
 curl -X DELETE "localhost:8000/channels/my_cool_channel" -u admin:password
+```
+
+### Listing the stub packages
+GET /stubs
+Returns a JSON dict of {"stubs": ["hash1", "hash2"]} for all of the uploaded stubs
+
+### Uploading a new stub
+POST /stubs
+Uploads a new stub file. This will be stored according to its short hash
+```sh
+curl -X POST "localhost:8000/stubs" -u admin:password -F "file=@/path/to/stub.tar.bz2"
 ```
