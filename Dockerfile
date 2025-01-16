@@ -8,6 +8,8 @@ ENV REPO_PATH=/repodata
 WORKDIR /app
 COPY environment.yml .
 RUN conda env create -p ./env -f environment.yml
+# Ensure /repodata is a directory for volume mounting
+RUN mkdir /repodata
 COPY main.py .
 COPY metapackagestub-1.0-0.tar.bz2 .
 EXPOSE 8000
